@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.DS_Store
+
+# 素材中间产物（可由 npm run assets 重新生成）
+assets/frames/
+assets/frames_cut/

@@ -1,0 +1,57 @@
+{
+  "name": "yuexin-cat-pet",
+  "version": "1.0.0",
+  "description": "月薪喵 桌面宠物 — 一只在屏幕上乖巧又偶尔捣乱的小猫",
+  "author": "zzx",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --x64",
+    "dist:mac": "electron-builder --mac --universal",
+    "assets": "ffmpeg -y -v error -i assets/source/cat-source.gif -vsync 0 assets/frames/f_%03d.png && python3 scripts/cutout.py && python3 scripts/make_icons.py"
+  },
+  "build": {
+    "appId": "com.zzx.yuexincat",
+    "productName": "月薪喵桌宠",
+    "asar": true,
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "assets/cat.webp",
+      "assets/mask.png",
+      "assets/tray.png"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/build-icons/icon.ico",
+      "artifactName": "YuexinCatPet-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "shortcutName": "月薪喵桌宠"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/build-icons/icon.png",
+      "category": "public.app-category.entertainment",
+      "artifactName": "YuexinCatPet-${version}.${ext}"
+    }
+  },
+  "devDependencies": {
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3"
+  }
+}
