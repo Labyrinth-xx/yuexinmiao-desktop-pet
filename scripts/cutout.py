@@ -14,9 +14,10 @@ import os
 
 SRC = "assets/frames"        # 输入帧 f_%03d.png（ffmpeg 抽的）
 OUTF = "assets/frames_cut"   # 透明帧输出
-BAR = 3                      # 底部水印条行数（含安全余量）
+BAR = 0                      # 底部水印条行数（含安全余量）；当前 B站高清源无水印，设 0
 PAD = 8                      # 主体四周留白
 THRESH = 72                 # flood-fill 颜色容差（白底 vs 棕描边，按需调；调高=吃掉更多浅色毛边）
+FRAME_MS = 30               # 每帧时长(ms)；30≈33fps，跟随高清源原生节奏（旧版 100ms=10fps 偏卡）
 
 os.makedirs(OUTF, exist_ok=True)
 files = sorted(glob.glob(f"{SRC}/f_*.png"))
@@ -66,15 +67,15 @@ for c in cuts:
 mask = Image.fromarray((union * 255).astype("uint8"), "L").filter(ImageFilter.MaxFilter(3))
 mask.save("assets/mask.png")
 
-# 3) 组装动画 WebP（无损、无限循环、10fps -> 100ms/帧）
+# 3) 组装动画 WebP（无损、无限循环，帧速跟随源原生节奏）
 cuts[0].save(
     "assets/cat.webp", save_all=True, append_images=cuts[1:],
-    duration=100, loop=0, lossless=True, disposal=2, method=6,
+    duration=FRAME_MS, loop=0, lossless=True, disposal=2, method=6,
 )
 # APNG 备份（个别环境对 WebP 支持差时可用）
 cuts[0].save(
     "assets/cat.apng", save_all=True, append_images=cuts[1:],
-    duration=100, loop=0, disposal=2, format="PNG",
+    duration=FRAME_MS, loop=0, disposal=2, format="PNG",
 )
 
 # 4) 透明度自检：第 1 帧分别合到品红底 + 深灰底（深色底最能暴露白色毛边）

@@ -5,3 +5,6 @@ dist/
 # 素材中间产物（可由 npm run assets 重新生成）
 assets/frames/
 assets/frames_cut/
+
+# 抠图自检临时图（npm run assets 每次重生成）
+assets/_verify_*.png
