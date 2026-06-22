@@ -11,4 +11,14 @@ contextBridge.exposeInMainWorld('pet', {
   dragStart: () => ipcRenderer.send('pet:dragStart'),
   dragMove: (dx, dy) => ipcRenderer.send('pet:dragMove', dx, dy),
   dragEnd: () => ipcRenderer.send('pet:dragEnd'),
+  // 主进程推送：换动作（含猫图+剪影 mask 的 URL）、显示/隐藏提醒气泡。
+  // 先清旧监听再注册，避免渲染层 reload 时监听器叠加导致回调重复触发。
+  onSetAction: (cb) => {
+    ipcRenderer.removeAllListeners('pet:setAction');
+    ipcRenderer.on('pet:setAction', (_e, payload) => cb(payload));
+  },
+  onBubble: (cb) => {
+    ipcRenderer.removeAllListeners('pet:bubble');
+    ipcRenderer.on('pet:bubble', (_e, payload) => cb(payload));
+  },
 });

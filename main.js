@@ -1,7 +1,7 @@
-// 入口：单实例锁 -> 建窗 + 乱跑引擎 + 托盘；常驻后台，由托盘"退出"才真退。
+// 入口：单实例锁 -> 建窗 + 行为状态机 + 托盘；常驻后台，由托盘"退出"才真退。
 const { app } = require('electron');
-const { createPetWindow } = require('./src/main/petWindow');
-const { createWander } = require('./src/main/wander');
+const { createPetWindow, CAT_INSET } = require('./src/main/petWindow');
+const { createBehavior } = require('./src/main/behavior');
 const { setupTray, setAutoLaunch } = require('./src/main/tray');
 const Settings = require('./src/main/settings');
 
@@ -9,40 +9,41 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   let win;
-  let wander;
+  let behavior;
+  let settings;
   let tray; // 持有引用，防止被 GC 回收导致托盘消失
 
   app.whenReady().then(() => {
     if (process.platform === 'darwin' && app.dock) app.dock.hide(); // mac 开发时不占 Dock
 
     win = createPetWindow();
-    wander = createWander(win);
-    tray = setupTray(win, wander);
+    settings = new Settings();
+    behavior = createBehavior(win, settings, { inset: CAT_INSET });
+    tray = setupTray(win, behavior, settings);
 
-    // 拖拽时暂停乱跑；加一道保底：万一没收到 release（异常），12 秒后自动恢复
+    // 拖拽时抢占（暂停其它行为）；加一道保底：万一没收到 release（异常），12 秒后自动恢复
     let dragSafety = null;
     win.on('pet-grab', () => {
-      wander.pauseForDrag();
+      behavior.onGrab();
       clearTimeout(dragSafety);
-      dragSafety = setTimeout(() => wander.resumeFromDrag(), 12000);
+      dragSafety = setTimeout(() => behavior.onRelease(), 12000);
     });
     win.on('pet-release', () => {
       clearTimeout(dragSafety);
-      wander.resumeFromDrag();
+      behavior.onRelease();
     });
 
     firstRunDefaults();
-    wander.start();
+    behavior.start();
   });
 
   app.on('second-instance', () => { if (win) win.show(); });
   app.on('window-all-closed', () => { /* 不退出，常驻托盘 */ });
 
   function firstRunDefaults() {
-    const s = new Settings();
-    if (!s.get('initialized')) {
+    if (!settings.get('initialized')) {
       if (process.platform === 'win32') setAutoLaunch(true); // 仅 Windows 首次默认开机自启
-      s.set('initialized', true);
+      settings.set('initialized', true);
     }
   }
 }

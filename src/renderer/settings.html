@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <h1>月薪喵 设置</h1>
+
+    <section>
+      <label class="row">
+        <input type="checkbox" id="water-enabled" />
+        <span class="title">喝水提醒</span>
+      </label>
+      <div class="sub">
+        每隔 <input type="number" id="water-interval" min="1" max="600" /> 分钟提醒一次
+      </div>
+    </section>
+
+    <section>
+      <label class="row">
+        <input type="checkbox" id="standup-enabled" />
+        <span class="title">久坐提醒</span>
+      </label>
+      <div class="sub">
+        每隔 <input type="number" id="standup-interval" min="1" max="600" /> 分钟提醒一次
+      </div>
+    </section>
+
+    <section>
+      <label class="row">
+        <input type="checkbox" id="roam-enabled" />
+        <span class="title">随机乱跑（卖萌）</span>
+      </label>
+      <div class="sub">
+        每隔 <input type="number" id="roam-every" min="1" max="600" /> 分钟跑一次，
+        每次 <input type="number" id="roam-duration" min="3" max="120" /> 秒
+      </div>
+    </section>
+
+    <section>
+      <label class="row">
+        <input type="checkbox" id="idle-enabled" />
+        <span class="title">按时间段换待机动作</span>
+      </label>
+      <div class="sub">
+        每隔 <input type="number" id="idle-switch" min="1" max="120" /> 分钟换一个动作
+      </div>
+    </section>
+
+    <div class="footer">
+      <span id="status"></span>
+      <button id="save">保存</button>
+    </div>
+
+    <script src="settings.js"></script>
+  </body>
+</html>

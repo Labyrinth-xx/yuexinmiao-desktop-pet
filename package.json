@@ -18,9 +18,11 @@
     "files": [
       "main.js",
       "preload.js",
+      "preload-settings.js",
       "src/**/*",
       "assets/cat.webp",
       "assets/mask.png",
+      "assets/actions/**/*",
       "assets/tray.png",
       "assets/trayTemplate.png",
       "assets/trayTemplate@2x.png"

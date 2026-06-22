@@ -1,5 +1,36 @@
 # DEVLOG · 月薪喵桌宠
 
+## 2026-06-22 — 三大新功能：定时提醒 + 时间段动作 + DVD 漫游 + 设置页
+
+### 完成内容
+- **行为状态机 `behavior.js`（中枢）**：协调 IDLE/ROAM/REMIND/DRAG 四态，优先级
+  `DRAG > REMIND > ROAM > IDLE` 抢占，任意时刻至多一个 motion，退出非 IDLE 都 easeTo 回角落。
+  把旧 `wander.js` 瘦身为纯 motion 库（`easeTo` 缓动 + `dvdRoam` 碰边反弹漫游）。
+- **功能1 定时提醒**（`reminders.js` + `phrases.js`）：喝水/久坐两个独立定时器，到点猫跳出来
+  **走一段→停下弹气泡→停几秒→收气泡→再走**（2 轮，不边走边弹，保证文字可读）→ 回角落。
+  文案各 5 条随机抽。拖拽中触发的提醒排队，回 IDLE 再补。
+- **功能2 时间段待机动作**（`actions.js` + 扩展 `cutout.py`）：桌面 8 个 GIF 归集到
+  `assets/source/actions/`，批处理生成 `assets/actions/<name>/{cat.webp,mask.png}`。
+  白天(6-18)活泼 / 傍晚(18-23)通用 / 深夜(23-6)沉迷或睡，每隔几分钟在当前时段池随机换。
+  `半夜看电脑` 按用户决定保留背景（mask=整块矩形），其余 alpha 抠图 + 去首尾空白帧。
+- **功能3 DVD 漫游**：`dvdRoam` 恒速直线 + 碰可视边界反弹（按透明边距 inset 让可视猫贴屏幕边反弹），
+  替代旧"瞬移到点"。独立开关，复用托盘"暂停乱跑"。
+- **功能4 设置页**（`settingsWindow.js` + `preload-settings.js` + `src/renderer/settings.*`）：
+  普通带边框单例窗，四组开关+间隔（喝水/久坐/乱跑/换动作），保存即 `behavior.applyConfig` 热生效。
+- **窗口扩容** 108→220×160（底部居中放 108 猫，上方留白给气泡）；命中检测改为按 object-fit:contain
+  实际绘制矩形映射；换动作时 renderer 双缓冲换 mask。`settings.js` 加 DEFAULTS 深合并。
+  `package.json` build.files 加 `assets/actions/**` 与 `preload-settings.js`。
+
+### 关键决策
+- 气泡用**同窗口 DOM**（窗口扩大、透明区穿透）而非独立窗口：天然跟随猫、零同步成本。
+- 新建 `behavior.js` 而非把状态塞进 `wander.js`：避免单文件超标、职责混乱；motion/选动作/提醒拆成小模块。
+- 提醒**走停交替**而非边走边弹：用户明确指出移动中文字看不清。
+
+### 遗留问题 / 下次继续
+- 设置窗 UI、气泡观感、各动作抠图毛边未做可视化点击测，建议真机 `npm start` 跑一遍。
+- `tray` 的"暂停乱跑"勾选态在设置页改 roam 后不会自动刷新（次要，下次开菜单才更新）。
+- mfuns 那批 62 个 GIF 还能再挑几个加进 `assets/source/actions/` + 在 `settings.schedule` 登记即可扩展。
+
 ## 2026-06-22 — 换成自带透明背景的新源 GIF，砍掉抠图步骤
 
 ### 完成内容

@@ -1,6 +1,9 @@
-// 系统托盘：显示/隐藏、手动乱跑、暂停乱跑、开机自启开关、退出。
+// 系统托盘：显示/隐藏、手动乱跑、暂停乱跑、设置、开机自启开关、退出。
 const { app, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
+const { createSettingsWindow } = require('./settingsWindow');
+
+// behavior 暴露 roamNow()/isRoamEnabled()/setRoamEnabled()，替代旧 wander 接口。
 
 function getAutoLaunch() {
   return app.getLoginItemSettings().openAtLogin;
@@ -10,7 +13,7 @@ function setAutoLaunch(on) {
   app.setLoginItemSettings({ openAtLogin: !!on });
 }
 
-function setupTray(win, wander) {
+function setupTray(win, behavior, settings) {
   // macOS 用手绘线条模板图标（随菜单栏明暗自动反色，@2x 由命名自动加载）；
   // 其他平台用彩色猫头 tray.png。
   const isMac = process.platform === 'darwin';
@@ -26,13 +29,15 @@ function setupTray(win, wander) {
   const rebuild = () => {
     const menu = Menu.buildFromTemplate([
       { label: '显示 / 隐藏', click: () => (win.isVisible() ? win.hide() : win.show()) },
-      { label: '让它乱跑一下', click: () => wander.wanderNow() },
+      { label: '让它乱跑一下', click: () => behavior.roamNow() },
       {
         label: '暂停乱跑',
         type: 'checkbox',
-        checked: wander.isPaused(),
-        click: (mi) => wander.setPaused(mi.checked),
+        checked: !behavior.isRoamEnabled(), // 勾选=暂停=关闭随机漫游
+        click: (mi) => behavior.setRoamEnabled(!mi.checked),
       },
+      { label: '设置…', click: () => createSettingsWindow(settings, behavior, rebuild) },
+      { type: 'separator' },
       {
         label: '开机自启',
         type: 'checkbox',

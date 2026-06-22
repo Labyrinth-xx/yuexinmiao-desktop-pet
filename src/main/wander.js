@@ -1,60 +1,58 @@
-// 乱跑引擎：平时待机，每隔随机几分钟缓动平移到屏幕内随机位置（"偶尔捣乱"）。
+// Motion 库（纯移动算法，不含调度/状态）：缓动平移 + DVD 屏保式漫游。
+// 由 behavior.js 调度。每个函数返回一个 cancel()，调用即停（切状态时用）。
 const { screen } = require('electron');
 
-// 可用环境变量覆盖待机时长（便于调参/自测，正常运行不需要设）
-const envNum = (key, fallback) => {
-  const v = Number(process.env[key]);
-  return v > 0 ? v : fallback;
-};
+const easeInOut = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
 
-function createWander(win, opts = {}) {
-  const MIN = opts.minIdleMs ?? envNum('PET_MIN_IDLE_MS', 3 * 60 * 1000); // 最短待机 3 分钟
-  const MAX = opts.maxIdleMs ?? envNum('PET_MAX_IDLE_MS', 8 * 60 * 1000); // 最长待机 8 分钟
-  const DUR = opts.moveMs ?? envNum('PET_MOVE_MS', 1500); // 一次平移时长
-
-  let timer = null;
-  let paused = false;
-  let dragging = false;
-
-  const rint = (a, b) => Math.floor(a + Math.random() * Math.max(1, b - a));
-  const easeInOut = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
-
-  function schedule() {
-    clearTimeout(timer);
-    if (paused || dragging) return;
-    timer = setTimeout(trip, rint(MIN, MAX));
-  }
-
-  function trip() {
-    if (paused || dragging || win.isDestroyed()) return;
-    const wa = screen.getPrimaryDisplay().workArea;
-    const [w, h] = win.getSize();
-    const tx = rint(wa.x, wa.x + Math.max(1, wa.width - w));
-    const ty = rint(wa.y, wa.y + Math.max(1, wa.height - h));
-    moveTo(tx, ty, DUR, schedule);
-  }
-
-  function moveTo(tx, ty, dur, done) {
-    const [sx, sy] = win.getPosition();
-    const t0 = Date.now();
-    (function step() {
-      if (dragging || win.isDestroyed()) return; // 被抓走就停
-      const k = Math.min(1, (Date.now() - t0) / dur);
-      const e = easeInOut(k);
-      win.setPosition(Math.round(sx + (tx - sx) * e), Math.round(sy + (ty - sy) * e));
-      if (k < 1) setTimeout(step, 16);
-      else if (done) done();
-    })();
-  }
-
-  return {
-    start: schedule,
-    wanderNow: () => { if (!dragging && !paused) trip(); },
-    setPaused: (p) => { paused = p; if (p) clearTimeout(timer); else schedule(); },
-    isPaused: () => paused,
-    pauseForDrag: () => { dragging = true; clearTimeout(timer); },
-    resumeFromDrag: () => { dragging = false; schedule(); },
-  };
+// 缓动平移到 (tx,ty)，dur 毫秒，到达后 done()。用于"回角落"。
+function easeTo(win, tx, ty, dur, done) {
+  const [sx, sy] = win.getPosition();
+  const t0 = Date.now();
+  let cancelled = false;
+  (function step() {
+    if (cancelled || win.isDestroyed()) return;
+    const k = Math.min(1, (Date.now() - t0) / dur);
+    const e = easeInOut(k);
+    win.setPosition(Math.round(sx + (tx - sx) * e), Math.round(sy + (ty - sy) * e));
+    if (k < 1) setTimeout(step, 16);
+    else if (done && !win.isDestroyed()) done();
+  })();
+  return () => { cancelled = true; };
 }
 
-module.exports = { createWander };
+// DVD / 气泡屏保式漫游：恒速直线移动，碰到可视边界就反弹（速度分量取反 + 钳回边界）。
+// inset = 窗口四周透明边距，使"可视猫"贴屏幕边反弹，而非更大的透明窗口框。
+// durationMs 后停止并 onDone()。
+function dvdRoam(win, { durationMs, speed = 1.6, inset = { left: 0, right: 0, top: 0, bottom: 0 }, onDone }) {
+  const wa = screen.getPrimaryDisplay().workArea;
+  const [w, h] = win.getSize();
+  // 窗口左上角坐标的活动范围（按可视猫贴边换算）
+  const minX = wa.x - inset.left;
+  const maxX = wa.x + wa.width - w + inset.right;
+  const minY = wa.y - inset.top;
+  const maxY = wa.y + wa.height - h + inset.bottom;
+
+  let [x, y] = win.getPosition();
+  const ang = Math.random() * Math.PI * 2; // 随机初始方向
+  let vx = Math.cos(ang) * speed;
+  let vy = Math.sin(ang) * speed;
+  const t0 = Date.now();
+  let cancelled = false;
+
+  (function step() {
+    if (cancelled || win.isDestroyed()) return;
+    x += vx;
+    y += vy;
+    if (x <= minX) { x = minX; vx = Math.abs(vx); }
+    else if (x >= maxX) { x = maxX; vx = -Math.abs(vx); }
+    if (y <= minY) { y = minY; vy = Math.abs(vy); }
+    else if (y >= maxY) { y = maxY; vy = -Math.abs(vy); }
+    win.setPosition(Math.round(x), Math.round(y));
+    if (Date.now() - t0 < durationMs) setTimeout(step, 16);
+    else if (onDone) onDone();
+  })();
+
+  return () => { cancelled = true; };
+}
+
+module.exports = { easeTo, dvdRoam };
