@@ -11,9 +11,16 @@ function setAutoLaunch(on) {
 }
 
 function setupTray(win, wander) {
-  const iconPath = path.join(__dirname, '..', '..', 'assets', 'tray.png');
+  // macOS 用手绘线条模板图标（随菜单栏明暗自动反色，@2x 由命名自动加载）；
+  // 其他平台用彩色猫头 tray.png。
+  const isMac = process.platform === 'darwin';
+  const iconFile = isMac ? 'trayTemplate.png' : 'tray.png';
+  const iconPath = path.join(__dirname, '..', '..', 'assets', iconFile);
   const img = nativeImage.createFromPath(iconPath);
-  const tray = new Tray(img.isEmpty() ? nativeImage.createEmpty() : img);
+  // macOS 的 Tray 必须有有效图标，传空图会直接抛错崩溃；缺图标时给出可操作的提示
+  if (img.isEmpty()) throw new Error(`托盘图标缺失: ${iconPath}\n先跑: npm run assets`);
+  if (isMac) img.setTemplateImage(true);
+  const tray = new Tray(img);
   tray.setToolTip('月薪喵 桌宠');
 
   const rebuild = () => {

@@ -3,8 +3,8 @@ const { BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 
-const CAT_W = 150; // 屏显尺寸；长宽比跟随 assets/cat.webp 画布(392×393≈1:1)，命中检测按比例映射
-const CAT_H = 150;
+const CAT_W = 108; // 屏显尺寸；cat.webp 画布(103×95≈1:1) 由 object-fit:contain 居中铺满，命中检测按比例映射
+const CAT_H = 108;
 const ROOT = path.join(__dirname, '..', '..');
 
 function createPetWindow() {

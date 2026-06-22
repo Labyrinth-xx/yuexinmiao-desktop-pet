@@ -9,7 +9,7 @@
     "start": "electron .",
     "dist": "electron-builder --win --x64",
     "dist:mac": "electron-builder --mac --universal",
-    "assets": "ffmpeg -y -v error -i assets/source/cat-source.gif -vsync 0 assets/frames/f_%03d.png && python3 scripts/cutout.py && python3 scripts/make_icons.py"
+    "assets": "python3 scripts/cutout.py && python3 scripts/make_icons.py && python3 scripts/make_tray_icon.py"
   },
   "build": {
     "appId": "com.zzx.yuexincat",
@@ -21,7 +21,9 @@
       "src/**/*",
       "assets/cat.webp",
       "assets/mask.png",
-      "assets/tray.png"
+      "assets/tray.png",
+      "assets/trayTemplate.png",
+      "assets/trayTemplate@2x.png"
     ],
     "directories": {
       "output": "dist"
