@@ -29,4 +29,21 @@ function pickAction(bucket, schedule, lastName) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-module.exports = { inRange, currentBucket, pickAction };
+// 动作是否为"过场类"（播一会儿就退回长驻姿势）：在 holdSec 里配了播放秒数的就是。
+// 长驻类（摆手/趴着/困）不在 holdSec 里，会循环到下次 switch。
+const has = (obj, key) => !!obj && Object.prototype.hasOwnProperty.call(obj, key);
+const isTransient = (name, holdSec) => !!name && has(holdSec, name);
+
+// 过场动作播完后退回的"长驻"动作：从当前时段池里挑一个不在 holdSec 里的动作，尽量不与 lastName 重复。
+// 池里没有长驻类则返回 null（交给上层兜底）。
+function pickPose(bucket, schedule, holdSec, lastName) {
+  const pool = (schedule[bucket] && schedule[bucket].actions) || [];
+  const poses = pool.filter((n) => !has(holdSec, n));
+  if (poses.length === 0) return null;
+  if (poses.length === 1) return poses[0];
+  const candidates = poses.filter((n) => n !== lastName);
+  const list = candidates.length ? candidates : poses;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+module.exports = { inRange, currentBucket, pickAction, isTransient, pickPose };

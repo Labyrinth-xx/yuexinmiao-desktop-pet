@@ -3,7 +3,7 @@
 // motion 算法在 wander.js，动作挑选在 actions.js，本文件只做调度与状态转移。
 const { easeTo, dvdRoam } = require('./wander');
 const { homePosition } = require('./petWindow');
-const { currentBucket, pickAction } = require('./actions');
+const { currentBucket, pickAction, isTransient, pickPose } = require('./actions');
 const { createReminders } = require('./reminders');
 const { phraseFor } = require('./phrases');
 
@@ -11,6 +11,7 @@ const STATE = { IDLE: 'idle', ROAM: 'roam', REMIND: 'remind', DRAG: 'drag' };
 const PRIORITY = { idle: 0, roam: 1, remind: 2, drag: 3 };
 const HOME_DUR = 600; // 回角落缓动时长(ms)
 const REMIND_ROUNDS = 2; // 提醒"走一段-停下弹气泡"的轮数
+const SETTLE_POSE = 'kun'; // 过场动作播完退回的兜底姿势（最安静的动作；当前时段池里没有长驻类时用）
 
 const envNum = (key, fallback) => {
   const v = Number(process.env[key]);
@@ -24,6 +25,7 @@ function createBehavior(win, settings, geom) {
   let roamTimer = null;
   let idleTimer = null;
   let bubbleTimer = null;
+  let gestureTimer = null; // 过场动作播完退回长驻姿势的定时器；只在 IDLE 期间存在
   let lastAction = null;
   const remindQueue = []; // 拖拽/提醒进行中时到点的提醒先排队
 
@@ -31,24 +33,39 @@ function createBehavior(win, settings, geom) {
 
   const stopMotion = () => { if (cancelMotion) { cancelMotion(); cancelMotion = null; } };
   const clearTimers = () => {
-    clearTimeout(roamTimer); clearTimeout(idleTimer); clearTimeout(bubbleTimer);
-    roamTimer = null; idleTimer = null; bubbleTimer = null;
+    clearTimeout(roamTimer); clearTimeout(idleTimer); clearTimeout(bubbleTimer); clearTimeout(gestureTimer);
+    roamTimer = null; idleTimer = null; bubbleTimer = null; gestureTimer = null;
   };
   // 用 >= 是为了"同级也能重入"（如已在 ROAM 时托盘再点乱跑会重启 motion，enterRoam 先 stopMotion 不会叠加）。
   // 唯一例外是 REMIND：不能被另一个排队提醒重入打断，故 tryStartRemind 自己显式判 state，不走 canEnter。
   const canEnter = (target) => PRIORITY[target] >= PRIORITY[state];
 
-  function idleActionName() {
+  // 挑一个待机动作并显示。过场类（拍照/睡觉/电脑）按 holdSec 播几秒就退回长驻姿势，避免一直循环；
+  // 长驻类（摆手/趴着/困）保持循环到下一次 switch。
+  function playIdleAction() {
+    clearTimeout(gestureTimer);
+    gestureTimer = null;
     const bucket = currentBucket(new Date(), cfg.schedule);
     const name = pickAction(bucket, cfg.schedule, lastAction);
     lastAction = name;
-    return name;
+    win.pushAction(name);
+    if (!isTransient(name, cfg.idle.holdSec)) return; // 长驻类：保持循环
+    const ms = cfg.idle.holdSec[name] * 1000;
+    gestureTimer = setTimeout(() => {
+      gestureTimer = null;
+      if (state !== STATE.IDLE) return;
+      // 退回时重新取时段：hold 的 10~12 秒内可能跨过时段边界，不能复用上面算好的 bucket
+      const b = currentBucket(new Date(), cfg.schedule);
+      const pose = pickPose(b, cfg.schedule, cfg.idle.holdSec, lastAction) || SETTLE_POSE;
+      lastAction = pose;
+      win.pushAction(pose);
+    }, ms);
   }
 
   // ---------- IDLE：趴角落，按时间段定时换待机动作 ----------
   function enterIdle() {
     state = STATE.IDLE;
-    win.pushAction(idleActionName());
+    playIdleAction();
     scheduleIdleSwitch();
     scheduleRoam();
     tryStartRemind(); // 处理拖拽/上一次提醒期间排队的提醒
@@ -61,7 +78,7 @@ function createBehavior(win, settings, geom) {
     const ms = envNum('PET_IDLE_SWITCH_MS', cfg.idle.switchMin * 60 * 1000);
     idleTimer = setTimeout(() => {
       if (state !== STATE.IDLE) return;
-      win.pushAction(idleActionName());
+      playIdleAction();
       scheduleIdleSwitch();
     }, ms);
   }

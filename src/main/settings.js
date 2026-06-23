@@ -13,11 +13,15 @@ const DEFAULTS = Object.freeze({
     standup: { enabled: true, intervalMin: 50 },
   },
   roam: { enabled: true, everyMin: 6, durationSec: 12 },
-  idle: { enabled: true, switchMin: 3 },
+  // 动作分三档：① 长驻（摆手/趴着/困）——不在 holdSec 里，循环到下次 switch；
+  // ② 偶尔（睡觉/电脑）——播 holdSec 秒就退回长驻姿势；③ 极短（拍照）——播很短就退回。
+  // 改某动作的播放时长只改 holdSec（单位：秒），不改代码。
+  idle: { enabled: true, switchMin: 3, holdSec: { paizhao: 3, pawo: 10, shuijiao: 12, kandiannao: 12 } },
   // 时间段 -> 动作名池。动作名 = assets/actions/<name>/ 目录名。
   // 改时间段或加动作只改这里，不改代码。
+  // 每个时段池至少留一个"长驻"动作（不在 holdSec 里），供过场动作播完后退回。
   schedule: {
-    day: { from: 6, to: 18, actions: ['paizhao', 'naotou', 'tiaoyue'] },
+    day: { from: 6, to: 18, actions: ['paizhao', 'pawo', 'kun'] },
     dusk: { from: 18, to: 23, actions: ['pawo', 'baishou', 'kun'] },
     night: { from: 23, to: 6, actions: ['kandiannao', 'shuijiao', 'kun'] },
   },

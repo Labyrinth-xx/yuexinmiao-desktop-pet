@@ -22,6 +22,8 @@ body {
   object-fit: contain;
   pointer-events: none;
   -webkit-user-drag: none;
+  opacity: 1;
+  transition: opacity 0.15s ease; /* 换动作淡入淡出，避免硬切突兀；时长与 renderer.js FADE_MS 一致 */
 }
 
 /* 提醒气泡：浮在猫上方居中，半透明圆角，下方小三角指向猫。纯展示，不拦事件。 */

@@ -65,10 +65,21 @@ function setInteractive(on) {
   loadMask(maskURL);
 })();
 
+// 换动作过渡：先淡出旧图，淡出完再换图+mask 淡入，避免硬切突兀。
+// FADE_MS 必须与 style.css 里 #cat 的 transition 时长一致。
+const FADE_MS = 150;
+let fadeTimer = null;
+
 // 主进程推送换动作（cat 图 + mask 同换）
 api.onSetAction(({ catURL, maskURL }) => {
-  setCat(catURL);
-  loadMask(maskURL);
+  clearTimeout(fadeTimer); // 连续换动作时丢弃上一次未完成的过渡，避免叠加
+  catEl.style.opacity = '0';
+  fadeTimer = setTimeout(() => {
+    maskData = null; // 先清旧 mask：新 mask 加载完前命中检测一律返回 false，避免按旧剪影误判
+    setCat(catURL);
+    loadMask(maskURL);
+    catEl.style.opacity = '1';
+  }, FADE_MS);
 });
 
 // 主进程控制提醒气泡显示/隐藏
