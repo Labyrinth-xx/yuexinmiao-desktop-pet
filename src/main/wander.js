@@ -72,4 +72,4 @@ function dvdRoam(win, { durationMs, speed = 1.6, inset = { left: 0, right: 0, to
   return () => { cancelled = true; };
 }
 
-module.exports = { easeTo, dvdRoam };
+module.exports = { easeTo, dvdRoam, readPos };

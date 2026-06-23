@@ -23,20 +23,20 @@ function createReminders(getCfg, onFire) {
   let ticker = null;
 
   // 提醒阈值(ms)：默认按设置页的 intervalMin；自测时可用 PET_*_MS 覆盖成很短。
-  const thresholdMs = (kind) =>
-    envNum(ENV[kind], getCfg().reminders[kind].intervalMin * 60 * 1000);
+  const thresholdMs = (kind, cfg) => envNum(ENV[kind], cfg.intervalMin * 60 * 1000);
 
   function tick() {
     const idle = powerMonitor.getSystemIdleTime(); // 距上次键鼠操作的秒数
     const now = Date.now();
     const away = idle >= breakSec();
+    const reminders = getCfg().reminders; // 一拍只取一次配置，避免重复读取
     for (const kind of KINDS) {
-      const cfg = getCfg().reminders[kind];
+      const cfg = reminders[kind];
       if (!cfg.enabled) { sittingSince[kind] = null; continue; } // 关了就不计时
       if (away) { sittingSince[kind] = null; continue; }          // 离开够久=已休息→清零，回来重数
       if (sittingSince[kind] === null) sittingSince[kind] = now;  // 人在座的第一拍：开始数
       // 坐够时长 且 人确实在座 → 提醒；提醒后重新计时
-      if (now - sittingSince[kind] >= thresholdMs(kind) && idle < PRESENT_SEC) {
+      if (now - sittingSince[kind] >= thresholdMs(kind, cfg) && idle < PRESENT_SEC) {
         onFire(kind);
         sittingSince[kind] = now;
       }
@@ -47,8 +47,9 @@ function createReminders(getCfg, onFire) {
   function startTicker() {
     if (ticker) return; // 已在跑就不重置，避免改设置时把累计在座时长清零
     const now = Date.now();
+    const reminders = getCfg().reminders;
     for (const kind of KINDS) {
-      if (getCfg().reminders[kind].enabled) sittingSince[kind] = now;
+      if (reminders[kind].enabled) sittingSince[kind] = now;
     }
     ticker = setInterval(tick, TICK_MS);
   }

@@ -1,7 +1,7 @@
 // 行为状态机（中枢）：协调待机换动作、随机漫游、提醒、拖拽，保证它们不打架。
 // 优先级（高->低）：DRAG > REMIND > ROAM > IDLE。高优先级抢占低优先级。
 // motion 算法在 wander.js，动作挑选在 actions.js，本文件只做调度与状态转移。
-const { easeTo, dvdRoam } = require('./wander');
+const { easeTo, dvdRoam, readPos } = require('./wander');
 const { homePosition } = require('./petWindow');
 const { currentBucket, pickAction, isTransient, pickPose } = require('./actions');
 const { createReminders } = require('./reminders');
@@ -159,11 +159,9 @@ function createBehavior(win, settings, geom) {
   function returnHome() {
     stopMotion();
     const [hx, hy] = homePosition();
-    // 坐标兜底：getPosition 偶发返回非有限值时，dist→NaN→dur→NaN 会让缓动既不前进也不结束，
-    // 猫永久卡死回不了待机。读不到就当作已在终点（dist=0 → 用最短时长）。
-    const [px, py] = win.getPosition();
-    const cx = Number.isFinite(px) ? px : hx;
-    const cy = Number.isFinite(py) ? py : hy;
+    // 坐标兜底（复用 wander.readPos）：getPosition 偶发返回非有限值时若不兜底，dist→NaN→dur→NaN
+    // 会让缓动既不前进也不结束、猫永久卡死。读不到就当作已在终点（dist=0 → 用最短时长）。
+    const [cx, cy] = readPos(win, [hx, hy]);
     const dist = Math.hypot(hx - cx, hy - cy);
     const dur = Math.max(RETURN_MIN, Math.min(RETURN_MAX, dist / RETURN_SPEED));
     cancelMotion = easeTo(win, hx, hy, dur, () => {
