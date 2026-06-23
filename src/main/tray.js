@@ -51,8 +51,12 @@ function setupTray(win, behavior, settings) {
   };
 
   rebuild();
-  // 左键点托盘图标 = 显示/隐藏（Windows 右键自带弹出菜单，不再手动弹避免双菜单）
-  tray.on('click', () => (win.isVisible() ? win.hide() : win.show()));
+  // 仅 Windows 绑左键切换显示/隐藏：那里左键空闲、右键才弹菜单。
+  // macOS 上点击图标本就会弹出 setContextMenu 的菜单，再绑 click 切换会导致每次点都把猫隐藏掉。
+  // mac 上隐藏/显示走菜单里的「显示 / 隐藏」项即可。
+  if (process.platform !== 'darwin') {
+    tray.on('click', () => (win.isVisible() ? win.hide() : win.show()));
+  }
   return tray;
 }
 
