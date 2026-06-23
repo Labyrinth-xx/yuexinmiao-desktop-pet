@@ -10,7 +10,7 @@ const DEFAULTS = Object.freeze({
   autoLaunch: false,
   reminders: {
     water: { enabled: true, intervalMin: 45 },
-    standup: { enabled: true, intervalMin: 50 },
+    standup: { enabled: true, intervalMin: 60 },
   },
   roam: { enabled: true, everyMin: 6, durationSec: 12 },
   // 动作分三档：① 长驻（摆手/趴着/困）——不在 holdSec 里，循环到下次 switch；

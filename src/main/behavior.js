@@ -9,8 +9,11 @@ const { phraseFor } = require('./phrases');
 
 const STATE = { IDLE: 'idle', ROAM: 'roam', REMIND: 'remind', DRAG: 'drag' };
 const PRIORITY = { idle: 0, roam: 1, remind: 2, drag: 3 };
-const HOME_DUR = 600; // 回角落缓动时长(ms)
-const REMIND_ROUNDS = 2; // 提醒"走一段-停下弹气泡"的轮数
+// 回角落用"按距离算时长"的恒速缓动（≈出来漫游的速度），避免远距离时像被瞬间拽回去。
+const RETURN_SPEED = 0.12; // px/ms（≈ dvdRoam 1.8px/16ms 的恒速），越小走得越慢
+const RETURN_MIN = 500;    // 最短时长(ms)：很近时也别太突兀
+const RETURN_MAX = 4000;   // 最长时长(ms)：跨屏也不至于慢到让人等
+const REMIND_ROUNDS = 3; // 提醒"走一段-停下弹气泡"的轮数（走更多段=覆盖更大屏幕范围）
 const SETTLE_POSE = 'kun'; // 过场动作播完退回的兜底姿势（最安静的动作；当前时段池里没有长驻类时用）
 
 const envNum = (key, fallback) => {
@@ -109,7 +112,7 @@ function createBehavior(win, settings, geom) {
   // ---------- REMIND：到点跳出来"走一段-停下弹气泡-停几秒-收气泡-再走"，最后回角落 ----------
   // onFire 由 reminders 定时器调用；拖拽/正在提醒时排队，回 IDLE 再处理。
   function onReminderFire(kind) {
-    remindQueue.push(kind);
+    if (!remindQueue.includes(kind)) remindQueue.push(kind); // 同类去重：不堆叠重复提醒、给队列封顶
     tryStartRemind();
   }
 
@@ -132,7 +135,7 @@ function createBehavior(win, settings, geom) {
     if (state !== STATE.REMIND) return;
     if (round >= REMIND_ROUNDS) { win.pushBubble(null); returnHome(); return; }
     // 1) 走一小段（恒速漫游），到点 onDone 再停下弹气泡——绝不边走边弹，保证文字可读
-    const walkMs = envNum('PET_REMIND_WALK_MS', 2600);
+    const walkMs = envNum('PET_REMIND_WALK_MS', 5500); // 每段走更久=走得更远，能溜达到屏幕中央/对侧
     cancelMotion = dvdRoam(win, {
       durationMs: walkMs, speed: 1.8, inset: geom.inset,
       onDone: () => {
@@ -156,7 +159,14 @@ function createBehavior(win, settings, geom) {
   function returnHome() {
     stopMotion();
     const [hx, hy] = homePosition();
-    cancelMotion = easeTo(win, hx, hy, HOME_DUR, () => {
+    // 坐标兜底：getPosition 偶发返回非有限值时，dist→NaN→dur→NaN 会让缓动既不前进也不结束，
+    // 猫永久卡死回不了待机。读不到就当作已在终点（dist=0 → 用最短时长）。
+    const [px, py] = win.getPosition();
+    const cx = Number.isFinite(px) ? px : hx;
+    const cy = Number.isFinite(py) ? py : hy;
+    const dist = Math.hypot(hx - cx, hy - cy);
+    const dur = Math.max(RETURN_MIN, Math.min(RETURN_MAX, dist / RETURN_SPEED));
+    cancelMotion = easeTo(win, hx, hy, dur, () => {
       cancelMotion = null;
       enterIdle();
     });
@@ -166,7 +176,12 @@ function createBehavior(win, settings, geom) {
   function onGrab() {
     stopMotion();
     clearTimers();
-    if (state === STATE.REMIND) win.pushBubble(null); // 拖走时收掉气泡
+    // 提醒过程中点一下猫 = "知道了，别打扰我"：立刻收气泡、清掉排队的提醒；进入 DRAG，
+    // 松手时 onRelease 会缓动回角落。走 DRAG 这条成熟路径，避免与拖拽 dragMove 抢着写窗口位置而抖动。
+    if (state === STATE.REMIND) {
+      win.pushBubble(null);
+      remindQueue.length = 0;
+    }
     state = STATE.DRAG; // 保持当前动作，不强制换图
   }
 
